@@ -6,7 +6,7 @@ type SelectionType = 'hand' | 'selection';
 @Component({
   selector: 'app-scatter-plot',
   templateUrl: './scatter-plot.component.html',
-  styleUrls: ['./scatter-plot.component.styl']
+  // styleUrls: ['./scatter-plot.component.styl']
 })
 export class ScatterPlotComponent implements OnInit {
   @ViewChild('chart') private chart: ElementRef;
