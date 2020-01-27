@@ -1,5 +1,6 @@
 import { Component, OnInit, ViewChild, Input, ElementRef } from '@angular/core';
 import * as d3 from 'd3';
+import { BrushBehavior, Selection } from 'd3';
 
 type SelectionType = 'hand' | 'selection';
 
@@ -15,15 +16,24 @@ export class ScatterPlotComponent implements OnInit {
 
   zoomLevel = 1;
 
-  margin = { left: 100, bottom: 100, top: 25, right: 25 };
+  margin = { left: 50, bottom: 100, top: 25, right: 25 };
   size = { width: 1000, height: 500 };
+  minimapSize = { width: 300, height: 150 };
+  minimapMargin = { left: 25, right: 25 };
+
+  zoom = { min: 1, max: 3 };
 
   type: SelectionType = 'hand';
+  dotsWrapper: any;
+  brush: BrushBehavior<any>;
+  minimapBrush: BrushBehavior<any>;
+  minimap: any;
 
   constructor() {}
 
   ngOnInit() {
     const svg = d3.select(this.chart.nativeElement).append('svg');
+    const zoomWrapper = svg.append('g').classed('zoom-wrapper', true);
 
     svg
       .append('defs')
@@ -35,13 +45,19 @@ export class ScatterPlotComponent implements OnInit {
       .attr('width', this.size.width + this.margin.left + this.margin.right)
       .attr('height', this.size.height + this.margin.bottom + this.margin.top);
 
-    const mainArea = svg
-      .append('g')
-      .attr('class', 'main')
-      .attr('clip-path', 'url(#clip)');
+    zoomWrapper.attr('class', 'main').attr('clip-path', 'url(#clip)');
+
+    const mainArea = zoomWrapper.append('g');
+
+    const fullWidth = this.size.width +
+      this.margin.left +
+      this.margin.right +
+      this.minimapSize.width +
+      this.minimapMargin.left +
+      this.minimapMargin.right;
 
     svg
-      .attr('width', this.size.width + this.margin.left + this.margin.right)
+      .attr('width', fullWidth)
       .attr('height', this.size.height + this.margin.bottom + this.margin.top)
       .call(this.makeZoom(mainArea));
 
@@ -49,77 +65,77 @@ export class ScatterPlotComponent implements OnInit {
       .append('g')
       .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`);
 
-    const { x, y } = this.initAxes(mainArea);
+    const { x, y } = this.initAxes(mainArea, this.size, this.margin);
+    this.dotsWrapper = this.updateData(mainArea, this.margin, x, y, r => r * 25);
 
-    this.updateData(mainArea, this.margin, x, y);
+    this.createMiniMap(svg);
   }
 
   setMode(type: SelectionType) {
-    console.log(type)
+    console.log(type);
+    if (type === 'selection') {
+      const dots = this.dotsWrapper.selectAll('.dot');
+
+      this.brush = this.createBrush(dots);
+      this.dotsWrapper.call(this.brush);
+    } else if (type === 'hand') {
+      console.log(d3.select('.brush'));
+      // this.brush.move()
+    }
   }
 
   private makeZoom(svg: any): any {
     const zoom = d3
       .zoom()
-      .scaleExtent([1, 2])
-      .on('zoom', () => {
-        svg.attr('transform', d3.event.transform);
+      .scaleExtent([this.zoom.min, this.zoom.max])
+      .on('zoom', (...args) => {
       });
 
     Array.from(
       this.chart.nativeElement.querySelectorAll('.buttons button')
     ).forEach((el: HTMLElement) => {
-      console.log(el);
       el.addEventListener('click', () => {
         const lvl = +el.getAttribute('data-zoom') * 0.1;
-        this.zoomLevel += lvl;
-        zoom.scaleTo(svg, this.zoomLevel);
+        // this.zoomLevel = Math.min(Math.max(this.zoomLevel + lvl, this.zoom.min), this.zoom.max);
+        zoom.scaleBy(svg, 1 + lvl);
       });
     });
 
     return zoom;
   }
 
-  private initAxes(svg: any) {
+  private initAxes(svg: any, size, margin) {
     const x = d3
       .scaleLinear()
-      .domain([
-        -100,
-        100
-        // Math.min(...this.data.map(({ x }) => x)),
-        // Math.max(...this.data.map(({ x }) => x))
-      ])
-      .range([0, this.size.width]);
+      .domain([-100, 100])
+      .range([0, size.width]);
     svg
       .append('g')
       .attr(
         'transform',
-        'translate(' + this.margin.left + ',' + (this.size.height + this.margin.top) + ')'
+        'translate(' + margin.left + ',' + (size.height + margin.top) + ')'
       )
       .call(d3.axisBottom(x));
     const y = d3
       .scaleLinear()
-      .domain([
-        -100,
-        100
-      ])
-      .range([this.size.height, 0]);
+      .domain([-100, 100])
+      .range([size.height, 0]);
     svg
       .append('g')
-      .attr('transform', 'translate(' + this.margin.left + ',' + this.margin.top + ')')
+      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
       .call(d3.axisLeft(y));
 
     // add gridlines
     svg
       .append('g')
       .attr('class', 'grid')
-      .attr('transform', 'translate(' + this.margin.left + ',' + this.margin.top + ')')
+      .attr('transform', 'translate(' + margin.left + ',' + margin.top + ')')
       .call(
         d3
           .axisLeft(y)
           .ticks(10)
-          .tickSize(-this.size.width)
-          .tickFormat('')
+          .tickSize(-size.width)
+          .tickFormat('' as any)
       );
 
     svg
@@ -127,14 +143,14 @@ export class ScatterPlotComponent implements OnInit {
       .attr('class', 'grid')
       .attr(
         'transform',
-        'translate(' + this.margin.left + ',' + (this.size.height + this.margin.top) + ')'
+        'translate(' + margin.left + ',' + (size.height + margin.top) + ')'
       )
       .call(
         d3
           .axisBottom(x)
           .ticks(10)
-          .tickSize(-this.size.height)
-          .tickFormat('')
+          .tickSize(-size.height)
+          .tickFormat('' as any)
       );
 
     return { x, y };
@@ -142,9 +158,10 @@ export class ScatterPlotComponent implements OnInit {
 
   private updateData(
     svg: any,
-    margin: { left: number; bottom: number; top: number },
+    margin: { left: number; bottom?: number; top: number },
     x: any,
-    y: any
+    y: any,
+    r: any
   ) {
     const g = svg.append('g');
 
@@ -153,38 +170,37 @@ export class ScatterPlotComponent implements OnInit {
       .selectAll('.dot')
       .data(this.data);
 
-    const dotEl = dots
+    dots
       .enter()
       .append('circle')
+      .classed('dot', true)
       .attr('cx', d => x(d.x))
       .attr('cy', d => y(d.y))
-      .attr('r', d => d.size * 25)
+      .attr('r', d => r(d.size))
       .style('fill', `rgba(255, 0, 0, 0.7)`)
       .classed('selected', false)
       .on('mouseover', d => {
         console.log(d);
       });
 
-    const brush = this.createBrush(dotEl, dots);
-
-    g.call(brush);
+    return g;
   }
 
-  private createBrush(dotEl: any, dots: any) {
-    return d3
-      .brush()
+  private createBrush(dots: any) {
+    const brush = d3.brush();
+    brush
       .on('start', () => {
-        dotEl.style('fill', 'rgba(255, 0, 0, 0.7)').classed('selected', false);
+        dots.style('fill', 'rgba(255, 0, 0, 0.7)').classed('selected', false);
       })
-      .on('brush', function() {
+      .on('brush', () => {
         if (d3.event.selection === null) {
           return;
         }
         const [[x0, y0], [x1, y1]] = d3.event.selection;
 
-        dotEl.style('fill', 'rgba(255, 0, 0, 0.7)').classed('selected', false);
+        dots.style('fill', 'rgba(255, 0, 0, 0.7)').classed('selected', false);
 
-        dotEl
+        dots
           .filter(function() {
             const cx = d3.select(this).attr('cx');
             const cy = d3.select(this).attr('cy');
@@ -193,10 +209,57 @@ export class ScatterPlotComponent implements OnInit {
           })
           .style('fill', `rgba(0, 0, 255, 0.7)`)
           .classed('selected', true);
-        // dots.classed('selected', true);
       })
       .on('end', () => {
         console.log('end');
       });
+
+    return brush;
+  }
+
+  private createMiniMap(svg) {
+    const minimap = svg
+      .append('g')
+      .classed('minimap', true)
+      .attr('width', this.minimapSize.width)
+      .attr('height', this.minimapSize.height)
+      .attr(
+        'transform',
+        `translate(${this.margin.left +
+          this.size.width +
+          this.minimapMargin.left}, ${this.margin.top})`
+      );
+
+    this.minimap = minimap;
+
+    const { x, y } = this.initAxes(minimap, this.minimapSize, {
+      left: this.minimapMargin.left,
+      top: this.margin.top
+    });
+
+    // minimap
+    this.minimapBrush = d3.brush()
+      .extent([
+        [this.minimapMargin.left, this.margin.top],
+        [this.minimapSize.width + this.minimapMargin.right, this.minimapSize.height + this.margin.top]
+      ])
+      .on('brush', () => {
+
+      });
+
+    minimap
+      .call(this.minimapBrush)
+      .call(this.minimapBrush.move, [
+        [this.minimapMargin.left, this.margin.top],
+        [this.minimapSize.width + this.minimapMargin.right, this.minimapSize.height + this.margin.top]
+      ]);
+
+    this.updateData(
+      minimap,
+      { left: this.minimapMargin.left, top: this.margin.top },
+      x,
+      y,
+      r => r * (25 / 3),  // x25 is original size and minimap is 3 times smaller
+    );
   }
 }
