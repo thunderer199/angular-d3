@@ -4,9 +4,16 @@ import { BrushBehavior, Selection } from 'd3';
 
 type SelectionType = 'hand' | 'selection';
 
+export interface Margin {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
 @Component({
   selector: 'app-scatter-plot',
-  templateUrl: './scatter-plot.component.html',
+  templateUrl: './scatter-plot.component.html'
   // styleUrls: ['./scatter-plot.component.styl']
 })
 export class ScatterPlotComponent implements OnInit {
@@ -16,18 +23,24 @@ export class ScatterPlotComponent implements OnInit {
 
   zoomLevel = 1;
 
-  margin = { left: 50, bottom: 100, top: 25, right: 25 };
+  minimapScale = 0.3;
+
+  margin: Margin = { left: 75, bottom: 100, top: 25, right: 25 };
   size = { width: 1000, height: 500 };
   minimapSize = { width: 300, height: 150 };
-  minimapMargin = { left: 25, right: 25 };
+  minimapMargin: Margin = Object.keys(this.margin).reduce((res, key) => ({...res, [key]: this.margin[key] * this.minimapScale}), {}) as Margin;
 
   zoom = { min: 1, max: 3 };
+
 
   type: SelectionType = 'hand';
   dotsWrapper: any;
   brush: BrushBehavior<any>;
   minimapBrush: BrushBehavior<any>;
   minimap: any;
+
+  mainAxes: { x: any; y: any };
+  minimapAxes: { x: any; y: any };
 
   constructor() {}
 
@@ -49,7 +62,8 @@ export class ScatterPlotComponent implements OnInit {
 
     const mainArea = zoomWrapper.append('g');
 
-    const fullWidth = this.size.width +
+    const fullWidth =
+      this.size.width +
       this.margin.left +
       this.margin.right +
       this.minimapSize.width +
@@ -66,7 +80,14 @@ export class ScatterPlotComponent implements OnInit {
       .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`);
 
     const { x, y } = this.initAxes(mainArea, this.size, this.margin);
-    this.dotsWrapper = this.updateData(mainArea, this.margin, x, y, r => r * 25);
+    this.mainAxes = { x, y };
+    this.dotsWrapper = this.updateData(
+      mainArea,
+      this.margin,
+      x,
+      y,
+      r => r * 25
+    );
 
     this.createMiniMap(svg);
   }
@@ -89,15 +110,42 @@ export class ScatterPlotComponent implements OnInit {
       .zoom()
       .scaleExtent([this.zoom.min, this.zoom.max])
       .on('zoom', (...args) => {
+        console.log(
+          d3.event.transform.x,
+          this.mainAxes.x.invert(d3.event.transform.x)
+        );
+
+
+        const { x, y, k } = d3.event.transform;
+
+        const xCoord = x * this.minimapScale;
+        const yCoord = y * this.minimapScale;
+
+        const minimapSize = this.getMinimapSize();
+
+        svg.attr('transform', d3.event.transform);
+        this.minimapBrush.move(this.minimap, [
+          [
+            0 - xCoord / k,
+            0 - yCoord / k,
+          ],
+          [
+            (minimapSize.width - xCoord ) / k,
+            (minimapSize.height - yCoord) / k,
+          ]
+        ]);
       });
 
     Array.from(
       this.chart.nativeElement.querySelectorAll('.buttons button')
     ).forEach((el: HTMLElement) => {
       el.addEventListener('click', () => {
+        //d3.event.preventDefault();
         const lvl = +el.getAttribute('data-zoom') * 0.1;
         // this.zoomLevel = Math.min(Math.max(this.zoomLevel + lvl, this.zoom.min), this.zoom.max);
-        zoom.scaleBy(svg, 1 + lvl);
+        zoom.scaleBy(svg, 1 + lvl)
+
+        //svg.call(zoom.scaleBy, 1 + lvl)
       });
     });
 
@@ -217,6 +265,13 @@ export class ScatterPlotComponent implements OnInit {
     return brush;
   }
 
+private getMinimapSize() {
+  return {
+    width: this.minimapSize.width + this.minimapMargin.right + this.minimapMargin.left,
+    height: this.minimapSize.height + this.minimapMargin.top + this.minimapMargin.bottom,
+  };
+}
+
   private createMiniMap(svg) {
     const minimap = svg
       .append('g')
@@ -227,39 +282,41 @@ export class ScatterPlotComponent implements OnInit {
         'transform',
         `translate(${this.margin.left +
           this.size.width +
-          this.minimapMargin.left}, ${this.margin.top})`
+          this.minimapMargin.left}, ${this.minimapMargin.top})`
       );
 
     this.minimap = minimap;
 
     const { x, y } = this.initAxes(minimap, this.minimapSize, {
       left: this.minimapMargin.left,
-      top: this.margin.top
+      top: this.minimapMargin.top
     });
+    this.minimapAxes = { x, y };
+
+    const size = this.getMinimapSize();
 
     // minimap
-    this.minimapBrush = d3.brush()
+    this.minimapBrush = d3
+      .brush()
       .extent([
-        [this.minimapMargin.left, this.margin.top],
-        [this.minimapSize.width + this.minimapMargin.right, this.minimapSize.height + this.margin.top]
+        [0, 0],
+        [size.width, size.height],
       ])
-      .on('brush', () => {
-
-      });
+      .on('brush', () => {});
 
     minimap
       .call(this.minimapBrush)
       .call(this.minimapBrush.move, [
-        [this.minimapMargin.left, this.margin.top],
-        [this.minimapSize.width + this.minimapMargin.right, this.minimapSize.height + this.margin.top]
+        [0, 0],
+        [size.width, size.height],
       ]);
 
     this.updateData(
       minimap,
-      { left: this.minimapMargin.left, top: this.margin.top },
+      { left: this.minimapMargin.left, top: this.minimapMargin.top },
       x,
       y,
-      r => r * (25 / 3),  // x25 is original size and minimap is 3 times smaller
+      r => r * (25 * this.minimapScale) // x25 is original size and minimap is 3 times smaller
     );
   }
 }
