@@ -1,8 +1,8 @@
 
 <div #chart>
   <div class="buttons">
-    <button data-zoom="+1">+</button>
-    <button data-zoom="-1">-</button>
+    <button (click)="this.buttonZoom(1.1)">+</button>
+    <button (click)="this.buttonZoom(0.9)">-</button>
 
     <button (click)="this.setMode('hand')">hand</button>
     <button (click)="this.setMode('selection')">selection</button>

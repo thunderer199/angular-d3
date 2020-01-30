@@ -36,16 +36,20 @@ export class ScatterPlotComponent implements OnInit {
   type: SelectionType = 'hand';
   dotsWrapper: any;
   brush: BrushBehavior<any>;
-  minimapBrush: BrushBehavior<any>;
   minimap: any;
 
   mainAxes: { x: any; y: any };
   minimapAxes: { x: any; y: any };
+  mainArea: any;
+  mainZoom: any;
+  minimapBrush: any;
+  svg: d3.Selection<SVGSVGElement, unknown, null, undefined>;
 
   constructor() {}
 
   ngOnInit() {
     const svg = d3.select(this.chart.nativeElement).append('svg');
+    this.svg = svg;
     const zoomWrapper = svg.append('g').classed('zoom-wrapper', true);
 
     svg
@@ -62,6 +66,8 @@ export class ScatterPlotComponent implements OnInit {
 
     const mainArea = zoomWrapper.append('g');
 
+    this.mainArea = mainArea;
+
     const fullWidth =
       this.size.width +
       this.margin.left +
@@ -73,11 +79,12 @@ export class ScatterPlotComponent implements OnInit {
     svg
       .attr('width', fullWidth)
       .attr('height', this.size.height + this.margin.bottom + this.margin.top)
-      .call(this.makeZoom(mainArea));
+      .call(this.makeZoom());
 
     mainArea
       .append('g')
       .attr('transform', `translate(${this.margin.left}, ${this.margin.top})`);
+
 
     const { x, y } = this.initAxes(mainArea, this.size, this.margin);
     this.mainAxes = { x, y };
@@ -88,6 +95,7 @@ export class ScatterPlotComponent implements OnInit {
       y,
       r => r * 25
     );
+
 
     this.createMiniMap(svg);
   }
@@ -102,20 +110,18 @@ export class ScatterPlotComponent implements OnInit {
     } else if (type === 'hand') {
       console.log(d3.select('.brush'));
       // this.brush.move()
+      this.dotsWrapper.remove();
+      this.dotsWrapper = this.updateData(
+        this.mainArea, this.margin, this.mainAxes.x, this.mainAxes.y, r => r * 25
+      )
     }
   }
 
-  private makeZoom(svg: any): any {
+  private makeZoom(): any {
     const zoom = d3
       .zoom()
       .scaleExtent([this.zoom.min, this.zoom.max])
-      .on('zoom', (...args) => {
-        console.log(
-          d3.event.transform.x,
-          this.mainAxes.x.invert(d3.event.transform.x)
-        );
-
-
+      .on('zoom', () => {
         const { x, y, k } = d3.event.transform;
 
         const xCoord = x * this.minimapScale;
@@ -123,33 +129,21 @@ export class ScatterPlotComponent implements OnInit {
 
         const minimapSize = this.getMinimapSize();
 
-        svg.attr('transform', d3.event.transform);
-        this.minimapBrush.move(this.minimap, [
-          [
-            0 - xCoord / k,
-            0 - yCoord / k,
-          ],
-          [
-            (minimapSize.width - xCoord ) / k,
-            (minimapSize.height - yCoord) / k,
-          ]
-        ]);
+        this.mainArea.attr('transform', d3.event.transform);
+
+        this.minimapBrush
+          .attr('transform', `translate(${-xCoord / k}, ${-yCoord / k} )`)
+          .attr('width', minimapSize.width / k)
+          .attr('height', minimapSize.height / k);
       });
 
-    Array.from(
-      this.chart.nativeElement.querySelectorAll('.buttons button')
-    ).forEach((el: HTMLElement) => {
-      el.addEventListener('click', () => {
-        //d3.event.preventDefault();
-        const lvl = +el.getAttribute('data-zoom') * 0.1;
-        // this.zoomLevel = Math.min(Math.max(this.zoomLevel + lvl, this.zoom.min), this.zoom.max);
-        zoom.scaleBy(svg, 1 + lvl)
-
-        //svg.call(zoom.scaleBy, 1 + lvl)
-      });
-    });
+    this.mainZoom = zoom;
 
     return zoom;
+  }
+
+  public buttonZoom(scale: number) {
+    this.mainZoom.scaleBy(this.svg, scale);
   }
 
   private initAxes(svg: any, size, margin) {
@@ -228,7 +222,7 @@ export class ScatterPlotComponent implements OnInit {
       .style('fill', `rgba(255, 0, 0, 0.7)`)
       .classed('selected', false)
       .on('mouseover', d => {
-        console.log(d);
+        // console.log(d);
       });
 
     return g;
@@ -295,21 +289,12 @@ private getMinimapSize() {
 
     const size = this.getMinimapSize();
 
-    // minimap
-    this.minimapBrush = d3
-      .brush()
-      .extent([
-        [0, 0],
-        [size.width, size.height],
-      ])
-      .on('brush', () => {});
+    this.minimapBrush = this.minimap.append('rect')
+      .style('fill', 'grey')
+      .style('opacity', .3)
+      .attr('width', size.width)
+      .attr('height', size.height);
 
-    minimap
-      .call(this.minimapBrush)
-      .call(this.minimapBrush.move, [
-        [0, 0],
-        [size.width, size.height],
-      ]);
 
     this.updateData(
       minimap,
