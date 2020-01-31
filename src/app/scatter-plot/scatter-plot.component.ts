@@ -62,19 +62,17 @@ export class ScatterPlotComponent implements OnInit {
       .attr('width', this.size.width + this.margin.left + this.margin.right)
       .attr('height', this.size.height + this.margin.bottom + this.margin.top);
 
-    zoomWrapper.attr('class', 'main').attr('clip-path', 'url(#clip)');
+    zoomWrapper
+      .attr('class', 'main')
+      .attr('clip-path', 'url(#clip)')
+      // .attr('transform', `translate(0, 0)`);
+
 
     const mainArea = zoomWrapper.append('g');
 
     this.mainArea = mainArea;
 
-    const fullWidth =
-      this.size.width +
-      this.margin.left +
-      this.margin.right +
-      this.minimapSize.width +
-      this.minimapMargin.left +
-      this.minimapMargin.right;
+    const fullWidth = this.getFullWidth();
 
     svg
       .attr('width', fullWidth)
@@ -100,6 +98,15 @@ export class ScatterPlotComponent implements OnInit {
     this.createMiniMap(svg);
   }
 
+  private getFullWidth(): number {
+    return this.getMainAreaWidth() +
+      this.minimapSize.width + this.minimapMargin.left + this.minimapMargin.right;
+  }
+
+  private getMainAreaWidth(): number {
+    return this.size.width + this.margin.left + this.margin.right;
+  }
+
   setMode(type: SelectionType) {
     console.log(type);
     if (type === 'selection') {
@@ -121,7 +128,9 @@ export class ScatterPlotComponent implements OnInit {
     const zoom = d3
       .zoom()
       .scaleExtent([this.zoom.min, this.zoom.max])
-      .on('zoom', () => {
+      .on('zoom', (...args) => {
+        console.log(d3.event.transform);
+
         const { x, y, k } = d3.event.transform;
 
         const xCoord = x * this.minimapScale;
@@ -135,7 +144,24 @@ export class ScatterPlotComponent implements OnInit {
           .attr('transform', `translate(${-xCoord / k}, ${-yCoord / k} )`)
           .attr('width', minimapSize.width / k)
           .attr('height', minimapSize.height / k);
-      });
+      })
+
+      .translateExtent([
+        [0, 0],
+        [
+          this.getMainAreaWidth(),
+          this.size.height + this.margin.top + this.margin.bottom
+        ]
+      ])
+      .extent([
+        [0,0],
+        [
+          this.getMainAreaWidth(),
+          this.size.height + this.margin.top + this.margin.bottom
+        ]
+      ])
+
+
 
     this.mainZoom = zoom;
 
