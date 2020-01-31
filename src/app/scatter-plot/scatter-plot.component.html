@@ -1,8 +1,14 @@
-
-<div #chart>
+<div class="header">
   <div class="buttons">
     <button (click)="this.buttonZoom(1.1)">+</button>
     <button (click)="this.buttonZoom(0.9)">-</button>
+  </div>
+  <div class="minimap-area" #minimap></div>
+</div>
+
+
+<div #chart>
+  <div class="buttons">
 
     <button (click)="this.setMode('hand')">hand</button>
     <button (click)="this.setMode('selection')">selection</button>

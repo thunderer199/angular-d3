@@ -1,0 +1,12 @@
+
+.header {
+  background-color: grey;
+  height: 150px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.header .buttons {
+  display: flex;
+  flex-flow: column;
+}

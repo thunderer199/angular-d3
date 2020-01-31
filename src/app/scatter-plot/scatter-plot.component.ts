@@ -13,21 +13,25 @@ export interface Margin {
 
 @Component({
   selector: 'app-scatter-plot',
-  templateUrl: './scatter-plot.component.html'
-  // styleUrls: ['./scatter-plot.component.styl']
+  templateUrl: './scatter-plot.component.html',
+  styleUrls: ['./scatter-plot.component.css']
 })
 export class ScatterPlotComponent implements OnInit {
   @ViewChild('chart') private chart: ElementRef;
+  @ViewChild('minimap') private minimapRef: ElementRef;
 
   @Input() private data;
 
   zoomLevel = 1;
 
-  minimapScale = 0.3;
+  minimapScale = 0.2;
 
   margin: Margin = { left: 75, bottom: 100, top: 25, right: 25 };
   size = { width: 1000, height: 500 };
-  minimapSize = { width: 300, height: 150 };
+  minimapSize = {
+    width: this.size.width * this.minimapScale,
+     height: this.size.height * this.minimapScale
+  };
   minimapMargin: Margin = Object.keys(this.margin).reduce((res, key) => ({...res, [key]: this.margin[key] * this.minimapScale}), {}) as Margin;
 
   zoom = { min: 1, max: 3 };
@@ -94,8 +98,10 @@ export class ScatterPlotComponent implements OnInit {
       r => r * 25
     );
 
+  const minimapSvg = d3.select(this.minimapRef.nativeElement)
+    .append('svg');
 
-    this.createMiniMap(svg);
+    this.createMiniMap(minimapSvg);
   }
 
   private getFullWidth(): number {
@@ -292,7 +298,7 @@ private getMinimapSize() {
   };
 }
 
-  private createMiniMap(svg) {
+  private createMiniMap(svg, margin = {left: 0, top: 0}) {
     const minimap = svg
       .append('g')
       .classed('minimap', true)
@@ -300,9 +306,8 @@ private getMinimapSize() {
       .attr('height', this.minimapSize.height)
       .attr(
         'transform',
-        `translate(${this.margin.left +
-          this.size.width +
-          this.minimapMargin.left}, ${this.minimapMargin.top})`
+        // `translate(${this.margin.left + this.size.width + this.minimapMargin.left}, ${this.minimapMargin.top})`
+        `translate(${margin.left}, ${margin.top})`
       );
 
     this.minimap = minimap;
@@ -316,7 +321,7 @@ private getMinimapSize() {
     const size = this.getMinimapSize();
 
     this.minimapBrush = this.minimap.append('rect')
-      .style('fill', 'grey')
+      .style('fill', 'purple')
       .style('opacity', .3)
       .attr('width', size.width)
       .attr('height', size.height);
