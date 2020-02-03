@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, Input, ElementRef } from '@angular/core';
+import { Component, OnInit, ViewChild, Input, ElementRef, Output, EventEmitter } from '@angular/core';
 import * as d3 from 'd3';
 import { BrushBehavior, Selection } from 'd3';
 
@@ -21,6 +21,8 @@ export class ScatterPlotComponent implements OnInit {
   @ViewChild('minimap') private minimapRef: ElementRef;
 
   @Input() private data;
+
+  @Output() selection = new EventEmitter<any[]>();
 
   zoomLevel = 1;
 
@@ -274,15 +276,19 @@ export class ScatterPlotComponent implements OnInit {
 
         dots.style('fill', 'rgba(255, 0, 0, 0.7)').classed('selected', false);
 
-        dots
-          .filter(function() {
+        const dotsInSelection = dots
+          .filter(function () {
             const cx = d3.select(this).attr('cx');
             const cy = d3.select(this).attr('cy');
             // TODO: check is point inside circle
             return x0 <= cx && cx <= x1 && y0 <= cy && cy <= y1;
-          })
+          });
+        dotsInSelection
           .style('fill', `rgba(0, 0, 255, 0.7)`)
           .classed('selected', true);
+
+          this.selection.emit(dotsInSelection.data());
+
       })
       .on('end', () => {
         console.log('end');

@@ -8,10 +8,15 @@ import { DataGeneratorService } from "./data-generator.service";
 })
 export class AppComponent {
   title = 'scteerplot-d3';
+  selection = [];
 
   data = [];
 
   constructor(private dataService: DataGeneratorService) {
       this.data = dataService.getData(100, {start: -100, end: 100}, {start: -100, end: 100}, 1);
+  }
+
+  getList() {
+    return this.selection.map(s => s.extra.name).join(', ');
   }
 }

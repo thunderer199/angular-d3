@@ -1,6 +1,10 @@
 <!--The content below is only a placeholder and can be replaced.-->
 <div style="text-align:center">
-  Scatter plot prototype
-  <app-scatter-plot [data]="this.data"></app-scatter-plot>
+  Scatter plot prototype <br/>
+  <div style="height: 100px;">
+    selection: {{getList()}}
+  </div>
+  <hr/>
+  <app-scatter-plot [data]="this.data" (selection)="selection = $event"></app-scatter-plot>
 </div>
 

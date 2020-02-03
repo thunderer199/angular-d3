@@ -2,6 +2,8 @@ import { Injectable } from "@angular/core";
 import * as _ from "lodash";
 import { DataModel } from "./models";
 
+import * as faker from 'faker';
+
 @Injectable({
   providedIn: "root"
 })
@@ -18,7 +20,10 @@ export class DataGeneratorService {
       return {
         x: _.random(xStart, xEnd),
         y: _.random(yStart, yEnd),
-        size: _.random(0.1, maxSize, true)
+        size: _.random(0.1, maxSize, true),
+        extra: {
+          name: faker.commerce.productName(),
+        }
       } as DataModel;
     });
   }
